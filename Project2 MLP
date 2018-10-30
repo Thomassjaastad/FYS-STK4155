@@ -1,0 +1,1 @@
+Implementing logistic regression on the ising model. Using sigmoid function as activation function with Stochastic gradient descent solver. 
