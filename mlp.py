@@ -8,15 +8,15 @@ class mlp():
         self.inputs = inputs
         self.targets = targets
         self.nhidden = nhidden
-        self.eta = 0.1
+        self.eta = 0.001
         self.beta = 1.0
         self.nvectors = inputs.shape[0]
         self.ntargets = targets.shape[1]
         self.ninputs = inputs.shape[1]
         self.hiddenacc = np.zeros(self.nhidden)
         self.output = np.zeros(targets.shape[1])
-        self.v = np.random.randn(*(self.ninputs + 1, self.nhidden))*0.01
-        self.w = np.random.randn(*(self.nhidden + 1, self.ntargets))*0.01
+        self.v = np.random.randn(*(self.ninputs + 1, self.nhidden))*0.001
+        self.w = np.random.randn(*(self.nhidden + 1, self.ntargets))*0.001
 
     # activation functions
     def sigmoid(self, x):
@@ -26,12 +26,12 @@ class mlp():
         return x * (1 - x)
 
     def relu(self, x):
-        a= 0.01
+        a = 0.01
         if x < 0:
             return a*x
         else:
             return x
-        #return 0 if x < 0 else x
+
 
     def include_bias(self, array):
         bias = -1
@@ -57,38 +57,30 @@ class mlp():
         h_kappa = np.dot(a_chi_tot, self.w)
         
         # output
-        y_kappa = self.relu(h_kappa)
-        #print(y_kappa)
-        #y_kappa = self.sigmoid(h_kappa)
+        y_kappa = h_kappa
         self.output = y_kappa
         return y_kappa
 
     def backward(self, inputs, targets):
         updateV = np.zeros(np.shape(self.v))
         updateW = np.zeros(np.shape(self.w))
-
-        delO = np.zeros(self.ntargets)
-        delH = np.zeros(self.nhidden)
-
+        inputs_tot = self.include_bias(inputs)
+        hiddenacc_tot = self.include_bias(self.hiddenacc)
         #Error in outputlayer
-        #for k in range(self.ntargets):
-        delO = (self.output - targets)#*self.sigmoid_derivative(self.output[k])                
-        updateW = -self.eta*np.outer(self.hiddenacc.T, delO)
-        #Error in hiddenlayer
-        for k in range(self.nhidden):            
-            delH[k] = self.hiddenacc[k]*(1.0 - self.hiddenacc[k])*(sum(delO[:]*self.w.T[:, k]))                 
-        updateV = - self.eta*np.outer(inputs.T, delH)
-        
+        delO = (self.output - targets)                
+        updateW = np.outer(hiddenacc_tot.T, delO)
+        updateW = - self.eta*updateW
+        #Error in hiddenlayer  
+                   
+        delH = self.hiddenacc*(1.0 - self.hiddenacc)*np.outer(delO, self.w.T[:,:-1])
+        updateV = np.outer(inputs_tot.T, delH)
+        updateV = - self.eta*updateV
         #updateV and updateW are one smaller than self.v and self.w because of bias.
-        updateV = np.vstack((updateV, np.zeros(self.nhidden)))
-        updateW = np.vstack((updateW, np.zeros(self.ntargets)))
         self.v += updateV
         self.w += updateW
-        #for i in range(self.ninputs):
-        #    self.v[i] = self.v[i] + updateV[i]
-        #for j in range(self.nhidden):
-        #    self.w[j] = self.w[j] + updateW[j]
-
+        #print(self.v[0,-1], self.w[-1])
+        
+        
     def train(self, inputs, targets):
         for n in range(inputs.shape[0]):
             self.forward(inputs[n])
@@ -100,11 +92,11 @@ class mlp():
         for i in range(validationstargets.shape[0]):
             validation_out = self.forward(validationset[i])
             #print(validation_out, validationstargets[i])
-            error[i] = np.linalg.norm(validation_out - validationstargets[i])**2
-            #print(error[i], validation_out, validationstargets)
-        #exit()
-        print(sum(error))
-        return sum(error)
+            error[i] = np.linalg.norm(validationstargets[i] - validation_out)**2
+            
+        print('---------------------------- MSE ')
+        print(sum(error)/validationstargets.shape[0])
+        return sum(error)/validationstargets.shape[0]
 
     def earlystopping(self, inputs, targets, validationset, validationstargets):
         epochs = 400
@@ -129,7 +121,6 @@ class mlp():
         return error, epochs_final
 
     
-
     def k_fold(self, inputs_total, targets_total, Numbfolds):
         dataset = np.split(inputs_total[:-7], Numbfolds)
         dataset = np.array(dataset)
@@ -169,3 +160,5 @@ class mlp():
         train = np.reshape(train, (Numbfolds - 1,(Numbfolds - 2)*train_and_test.shape[1], 41))
         train_targets = np.reshape(train_targets, (Numbfolds-1, (Numbfolds - 2)*train_and_test.shape[1], 8))
         return train, train_targets, valid, valid_targets, test, test_target
+        
+        
