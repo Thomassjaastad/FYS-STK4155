@@ -1,0 +1,633 @@
+\documentclass[a4paper,12pt]{article}
+\usepackage[utf8]{inputenc}
+\usepackage[english]{babel}
+%\usepackage{biblatex}
+\usepackage{csquotes}
+\usepackage{graphicx}
+\usepackage{verbatim} 
+\usepackage{tabularx}
+\usepackage{booktabs}
+\usepackage{amsmath}
+\usepackage{float}
+\usepackage{color}
+\usepackage{listings}
+\usepackage{hyperref}
+\usepackage{amsmath}
+\usepackage{tikz}
+% \usepackage{physics}
+\usepackage{amssymb}
+\usepackage{titlesec}
+\usepackage{comment}
+\usepackage{subfig}
+\usepackage{geometry}
+\usepackage{hyperref}
+\hypersetup{
+    colorlinks = true,
+    citecolor = {blue},
+    %<your other options...>,
+}
+
+%listings
+\lstset{language=c++}
+\lstset{basicstyle=\small}
+\lstset{backgroundcolor=\color{white}}
+\lstset{frame=single}
+\lstset{stringstyle=\ttfamily}
+\lstset{keywordstyle=\color{red}\bfseries}
+\lstset{commentstyle=\itshape\color{blue}}
+\lstset{showspaces=false}
+\lstset{showstringspaces=false}
+\lstset{showtabs=false}
+\lstset{breaklines}
+\lstset{postbreak=\raisebox{0ex}[0ex][0ex]{\ensuremath{\color{red}\hookrightarrow\space}}}
+
+%tikz
+\setcounter{secnumdepth}{4}
+\usetikzlibrary{through, shapes, calc, shapes, arrows, positioning, er}
+\tikzstyle{neuron}=[draw,circle,minimum size=20pt,inner sep=0pt, fill=white]
+\tikzstyle{stateTransition}=[thick]
+\tikzstyle{learned}=[text=red]
+
+\title{FYS-STK4155 Project 2}
+\author{Gunnar Thorsen Liahjell, Thomas Sjåstad, Tobias Berdiin Olesen}
+\date{November 2018}
+
+\begin{document}
+
+\maketitle
+
+\section{Abstract}
+From a statistical point of view, solving the Ising model in both a 1 and 2 dimensional case grants satisfactory results. With the use of neural networks together with logistic, linear, ridge and lasso regression calculating the energies and separating the ordered and disordered phase of the Ising model is what this report examines. Statistical measures such as R2 score and mean squared error (MSE) were crucial parameters to keep track of in finding an appropriate selection of the regularization parameter $\lambda$. It was necessary in using the whole data set in order to train the model correctly. $\lambda$ values in the interval \in $[10^{-4}, 10^{-1}]$. The neural network produces an MSE of $10^{-2}$. Classifying the phases, a multi layer perceptron produced undoubtedly better results than the logistic regression case with an accuracy of 100\% for MLP and 65\% on training data for logistic regression.
+
+\section{Introduction}
+Machine learning include different ways to predict a model given a certain data set. 
+In this survey, several models will be analyzed and compared. With a physics problem from thermal dynamics, the Ising model is what will be considered. Starting with linear regression, an approximation of the coupling constant between two electrons will be attempted. This will also be done using a multi layer perceptron or neural network. A switch from linear to logistic regression will be done as the problem we want to solve becomes a classification case, that is, determining the phase of the Ising model. Also, a neural network will be implemented as in the former. 
+
+The Ising model, introduced by Ernst Ising, simulate the properties of ferromagnetic materials. 
+Ferromagnetic materials include metals like iron, nickel and cobalt. Inside are small magnetic dipoles. When each magnetic dipole are aligned the material creates a magnetic field, i.e ferromagnetism occurs. The net magnetic moment becomes macroscopic in value making it a measurable quantity. Varying the temperature of ferromagnetic materials, it experiences a demagnetization for a certain temperature. This specific temperature is often called the "curie" temperature. The Ising model provides a insight in how magnetic materials behave when thermal energy and external magnetic fields is acted upon these materials. The next section covers this in more detail.
+
+Ising solved the model for a one-dimensional case. He found that the one dimensional case had no phase transition. Furthermore, it was stated that there was no phase transition in any dimension. This turned out to be wrong.  
+In the case where no added external magnetic field is applied, the model was solved for a two dimensional case by Norwegian chemist Lars Onsager \cite{Lars Onsager}. 
+
+By applying machine learning, this project looks at solving the Ising model for a one and two-dimensional case. Machine learning methods include regression and classification. A multilayer neural network will be trained to estimate the coupling constant J. This constant is a value of the strength between two neighbouring spins in the system. In addition to this, the aim of this project is also to study the phase transition and find the critical temperature. Implementing machine learning algorithms and applying algorithms to the Ising model is done in \cite{ML for physicists}. Looking at their results and methods, a comparison will be completed. For the neural network, supervised learning will be the suitable method for our approach \cite{supervised training}. 
+
+\section{Theory}
+
+\subsection{Background for the Ising model}
+
+\subsubsection{Ferromagnetic materials}
+In most ordinary materials the magnetic dipoles associated with the atoms have a random orientation. This random distribution of magnetic moment results in approximately zero (macroscopic) magnetic moment. However, in ferromagnetic materials (like iron), a net magnetic moment is produced as a result of the prefered alignment of the atomic spins.
+Spin is a quantum mechanical property of the electron (this is not the only particle that has spin though), and can only be in two different states: pointing up or down. The spin of the electrons in atoms are the source of ferromagnetism, and when many of these spins point in the same direction, it creates a net macroscopic magnetic field.
+The fact that the spins in ferromagnetic materials 'prefer' to be in alignment is based on two fundamental principles: energy minimization and entropy maximization.
+
+\subsubsection{Phase transitions}
+The Ising model system exhibits a phase transition only for two dimensions or higher. The point where a phase transition takes place is called a critical point and the associated temperature is called the critical temperature $T_C$. The theoretical critical temperature for a phase transition is $T_C \approx 2.269$ in units of energy. However, for a finite lattice the critical temperature might be found to be $T_C \approx 2.3$.\newline
+The configurations representing states below the critical temperature are called ordered states, while those above the critical temperature are called unordered states.\newline
+
+The disappearance of a spontaneous magnetization is a typical example of a second-order phase transition. The behaviour around the critical point can be related to the thermodynamical potential Helmholtz' free energy. That being said, in this project we will not worry so much about exactly what happens in the close region around the critical point (where the phase transition happens). We will look at this system as a simple binary system where the system either is in an ordered state (non-zero net magnetization) or unordered state (no net magnetization), in order to do a binary classification of the phases.\newline
+
+\subsection{The Ising model}
+The Ising model illustrates the system by placing spins pointing either up or down. In the one-dimensional case the spins will simply form a line, while in the two-dimensional case the spins will be placed at regular lattice points as shown in figure 1. We will for the rest of this section focus on the two-dimensional case as it is quick to go from two to one dimension later on. Every different configuration of spins in the lattice is a microstate, and  the total sum of all the the microstates in the system one may call the multiplicity. The lattice is often squared with dimensions $L \times L = N$, where L is the number of spins in each direction and the total number of spins are equal to N. Since each spin has two different directions to be in, the number of possible different configurations of the system is equal to $2^N$. The interactions between the spins are restricted to nearest neighbors only.\newline
+With no external magnetic field present the energy for a specific two-dimensional configuration (state) $i$ is given as:
+\begin{equation}
+    E_i = -J \sum_{<kl>}^{N} s_k s_l
+\end{equation}
+where the symbol $<kl>$ indicates that the sum is over nearest neighbors only, $s_k$ and $s_l$ are the respective nearest neighbour spins. In our discussion the values for the spins will be +1 for spin up and -1 for spin down. J is a coupling constant expressing the strength of the interaction between neighboring spins. For ferromagnetic materials, $J > 0$.\newline
+
+In one dimension, equation (1) reduces to
+\begin{equation}
+    E = - J\sum_{k=1}^{N} s_k s_{k+1},
+\end{equation}
+
+Using equation (1) we can also write
+
+\begin{equation}
+    E_\mathrm{model}[\boldsymbol{s}^i] = - \sum_{j=1}^N \sum_{k=1}^N J_{j,k}s_{j}^is_{k}^i
+\end{equation}
+where $i$ represents a particular spin configuration.
+
+This model is uniquely defined by the coupling strengths $J_{jk}$ which we want to learn.
+The model is linear in $\mathbf{J}$ which makes it possible to use linear regression.\newline
+To apply linear regression, we recast this model in the form
+
+\begin{equation}
+    E_\mathrm{model}^i \equiv \mathbf{X}^i \cdot \mathbf{J},
+\end{equation}
+
+where the vectors $\mathbf{X}^i$ represent all two-body interactions
+$\{s_{j}^is_{k}^i \}_{j,k=1}^N$, and the index $i$ runs over the
+samples in the data set. Note that the
+regression model does not include the minus sign, so we expect to
+learn negative $J$'s\cite{proj2}.\newline
+
+It is from (1) also easy to see that it is energetically favorable for neighboring spins to be aligned. This fact can lead to the lattice having a net magnetization even in the absence of a magnetic field.\newline
+The magnetization $M_i$ associated with state $i$ is given by:
+\begin{equation}
+    M_i = \sum_{i}^{N}s_i.
+\end{equation}
+
+In the case of small systems, the way we treat the spins at the ends of the lattice matters. In this project we will use periodic boundary conditions. This means that the spins at the edges of the lattice are made to interact with the spins at the geometric opposite edges of the lattice.
+
+\begin{figure}[h!]
+  \centering
+  \caption{One possible configuration of spins in a 2x2 Ising model}
+  \includegraphics[width=1.5cm]{2x2-config.png}
+\end{figure}
+
+\subsection{Some statistics}
+
+\subsubsection{The Universal approximation theorem}
+The universal approximation theorem states that a neural network with one hidden layer can approximate any continous function for inputs within a specific range, under mild assumptions on the activation function.\newline
+\href{https://towardsdatascience.com/can-neural-networks-really-learn-any-function-65e106617fc6}{Fortuner, 2017}
+
+\subsubsection{The likelihood function and maximum likelihood estimation}
+In statistics, a likelihood function is a function of the parameters of a statistical model, given specified observed data. Likelihood functions plays a key role in methods of estimating a parameter from a set of statistics. More specifically, the likelihood describes the plausibility of a model parameter value, given specific observed data.\newline
+For many purposes, the natural logarithm of the likelihood, the so-called log-likelihood, is more practical to work with. Most often we are interested in where the likelihood reaches it's maximum value, and the logarithm of the likelihood function have it's maximum value at the same points as the regular likelihood function. Therefore are we in this project going to utilize the log-likelihood.\newline
+
+Maximum likelihood estimation (MLE) is a method that attempts to find the parameter values that maximizes the likelihood function.
+
+\subsection{The activation function}
+In order to fulfill the universal approximation theorem, the activation function must be restrained by a few requirements:\newline
+1. It must be non-constant\newline
+2. It must be bounded\newline
+3. It must be monotonically-increasing and continuous\newline
+
+Note that the requirements on the acivation function only applies to the hidden layer(s) when applying it on a neural network. The output nodes are always assumed to be linear, in order to not restrict the range of output values. No matter how many layers there are in the network, the final output will just be a linear function of the inputs.\newline
+
+Typical examples of activation functions are the logistic sigmoid function, the rectified linear unit (ReLU) and the hyperbolic tangent function. The sigmoid function are likely more realistic because the output of inactive neurons are zero. Such activation functions are called one-sided. In this project we will use the same activation function $f$ for all layers and their neurons and the sigmoid function will be our preferred activation function: 
+\begin{equation}
+    f(x) = \frac{1}{ 1 - e^{-x} }
+\end{equation}
+
+\begin{figure}[h!]
+  \centering
+  \caption{Our activation function (the sigmoid)}
+  \includegraphics[width=10cm]{sigmoid.png}
+\end{figure}
+
+A large benefit of the sigmoid function is that it is convex and has a simple derivative:
+\begin{equation}
+    f'(x) = f(x)(1-f(x)).
+\end{equation}
+
+\subsection{Accuracy of a classification model}
+To evaluate how well a classification model is performing one may count the number of correctly labeled classes and divide by the total number of classes. Thus, the accuracy $a$ is given by
+\begin{equation}
+    a(y,\tilde{y}) = \frac{1}{n}\sum_{i=1}^n I(y_i = \tilde{y}_i),
+\end{equation}
+where $n$ is the total number of classes and $I(y_i = \tilde{y}_i)$ is the so-called indicator function given by
+\begin{align}
+    I(x = y) = \begin{array}{cc}
+    1 & x = y, \\
+    0 & x \neq y.
+    \end{array}
+\end{align}
+A perfect classifier will have an accuracy score of 1.
+
+\section{Methods}
+
+\subsection{Logistic regression}
+Our main concern with linear regression was to predict the response of a continuous variable on some unseen dataset. When it comes to logistic regression, it is most commonly used in situations where we have two possible outcomes, also called a binary outcome. This is a classification problem, where the outcomes take the form of discrete variables, like two different categories. The phase classification problem of the Ising model which we are going to solve in this project is an example of this.
+
+\subsubsection{Cost function for logistic regression}
+The function that gives the error of a single sample output will be called the loss function, and the function that gives the total error is called the cost function. For a multiclass classification problem, the cross-entropy loss (also called the negative log likelihood) is a typical choice of loss function. The cost function can then be defined as the sum over the cross-entropy loss for each point in the dataset. In the case of having two classes, this classification-dataset may be denoted {$\mathcal{D} = \{(y_i, x_i)\}$}, with labels $y_i = \epsilon \{0, 1\}$. The probability that a data point $x_i$ belongs to a category $y_i = \epsilon \{0, 1\}$ is simply given by the logit function Sigmoid.\newline
+ 
+ To get our cross-entropy cost function, a likelihood function is needed. This is found by using the maximum likelihood estimation principle. The likelihood can then be approximated in terms of the product of the individual probabilities of a specific outcome $y_i$:
+ \begin{equation}
+     P(\mathcal{D}|\hat{\beta}) = \prod_{i=1}^n \left[p(y_i=1|x_i,\hat{\beta})\right]^{y_i}\left[1-p(y_i=1|x_i,\hat{\beta}))\right]^{1-y_i}\nonumber \\
+ \end{equation}
+\cite{logreg}\newline
+ 
+ From the equation above the cost function can then be written as
+ \begin{equation}
+ C(\hat{\beta}) = \sum_{i=1}^n \left( y_i\log{p(y_i=1|x_i,\hat{\beta})} + (1-y_i)\log\left[1-p(y_i=1|x_i,\hat{\beta}))\right]\right)
+ \end{equation}
+ 
+ which by reordering the logarithms again can be rewritten as
+ \begin{equation}
+     \mathcal{C}(\hat{\beta}) = \sum_{i=1}^n  \left(y_i(\beta_0+\beta_1x_i) -\log{(1+\exp{(\beta_0+\beta_1x_i)})}\right)
+ \end{equation}
+ and since the cost function is just the negative log-likelihood, the final expression for the cost function becomes
+ \begin{equation}
+     \mathcal{C}(\hat{\beta}) = -\sum_{i=1}^n  \left(y_i(\beta_0+\beta_1x_i) -\log{(1+\exp{(\beta_0+\beta_1x_i)})}\right)
+ \end{equation}
+ Note that this is given an assumption of only having two parameters $\beta$ in our fitting of the sigmoid function.\newline
+ The equation above is well known in statistics as the \emph{cross entropy}.\newline
+ One important reason to use the cross-entropy is that it is convex and therefore relatively simple to deal with.
+It is also worth mentioning that one can supplement the cross entropy with so-called regularization terms to prevent the model from overfitting.\newline
+
+\subsubsection{Minimizing the cross entropy}
+Since the cross entropy is a convex funtion, one can be sure that the minimizing will lead to the global minima of the function. Taking the derivative of the cost function with respect to the two parameters $\beta_0$ and $\beta_1$, one can obtain
+\begin{equation*}
+    \frac{\partial \mathcal{C}(\hat{\beta})}{\partial \beta_0} = -\sum_{i=1}^n  \left(y_i -\frac{\exp{(\beta_0+\beta_1x_i)}}{1+\exp{(\beta_0+\beta_1x_i)}}\right)
+\end{equation*}
+and
+\begin{equation*}
+    \frac{\partial \mathcal{C}(\hat{\beta})}{\partial \beta_1} = -\sum_{i=1}^n  \left(y_ix_i -x_i\frac{\exp{(\beta_0+\beta_1x_i)}}{1+\exp{(\beta_0+\beta_1x_i)}}\right)
+\end{equation*}
+The first derivative of the cost function can then be written in a more compact way by defining a vector $\hat{y}$ with $n$ elements $y_i$, a
+$n\times p$ matrix $\hat{X}$ which contains the $x_i$ values and a
+vector $\hat{p}$ of fitted probabilities $p(y_i\vert x_i,\hat{\beta})$:
+\begin{equation}
+    \frac{\partial \mathcal{C}(\hat{\beta})}{\partial \hat{\beta}} = -\hat{X}^T\left(\hat{y}-\hat{p}\right)
+\end{equation}
+
+In order to minimize the cross-entropy, the expression above for the derivative of the cost function must enter into the gradient descent algorithm.
+
+\subsection{The gradient descent (steepest descent) method}
+The gradient descent method is an efficient optimization algorithm that tries to find a local or global minima of a function. Usually one would prefer to find the global rather than the local minimum. The basic idea of gradient descent is that a function $F(\hat{x})$ decreases fastest if one moves away from $\hat{x}$ in the direction of the negative gradient $-\nabla F(\hat{x})$.\newline
+One starts with an initial guess $\hat{x}_0$ for a minimum of F and computes new approximations according to
+\begin{equation}
+    \hat{x}_{k+1} = \hat{x}_k - \eta_k \nabla F(\hat{x}_k)
+\end{equation}
+with $\eta_k > 0$ and $k \geq 0$. It can then be shown that for a sufficiently small $\eta_k$ one will have $F(\hat{x}_{k+1}) \leq F(\hat{x}_k)$. In other words, one will in that case always be moving towards a minimum of the function.\newline
+In our case, the function that we would like to minimize is the cost function.\newline
+
+The parameter $\eta_k$ is most often called the learning rate. It is important to find an optimal value for the learning rate in order for gradient descent to work properly. Having a small $\eta_k$ is obviously important because the criteria $F(\hat{x}_{k+1}) \leq F(\hat{x}_k)$ needs to be satisfied. That being said, having a too small learning rate can be problematic aswell because the steps towards the minimum of the loss function will then be tiny, which means that the process will take a lot of time. Therefore, the optimal learning rate will have to strike a balance between being too big and too small.\newline
+One can solve this problem by using a dynamic learning rate which changes as the gradient descent progresses. A possible way is to use a learning rate that decreases as the number of iterations increases. Another way is to use a learning rate that takes long steps when the function is steep, but shorter steps as the function flattens.\newline
+
+
+Ideally one would hope that the sequence of $\hat{x}$'s of equation (14) converges to a global minimum of the function F. If lucky enough, F is a convex function and the method will certainly converge to the global minimum.\newline 
+In general though, one may not know if F is convex or not. This means that there is a chance that one might get stuck in a local minimum while searching for the global minimum. It is clear that although the gradient descent method is intuitively simple to understand and implement, it also has several drawbacks.\newline
+One of these drawbacks is that the method is very sensitive to the choice of learning rate, for the reasons described above. Similarly, gradient descent is also sensitive to the chosen initial conditions (initial guess). On top of this it may also be computationally expensive to perform.
+
+\subsubsection{Stochastic gradient descent}
+A simple, but effective improvement of the gradient descent method is called batch gradient descent or stochastic gradient descent. This works by calculating the gradient on a subset of the data called a minibatch, instead of calculating the gradient on the whole dataset. If one have N data points in the dataset and the minibatch size of M, then the total number of batches is $\frac{N}{M}$. Then, if each minibatch is refered to as $B_k$ with $k = 1, 2,..., \frac{N}{M}$, the gradient becomes:
+
+\begin{equation}
+    \nabla C(\theta) = \frac{1}{N} \sum_{i=1}^N{\nabla L_i (\theta)} \rightarrow \frac{1}{M} \sum_{i \epsilon B_k} \nabla L_i(\theta)
+\end{equation}
+where $L$ refers to the loss function and $\theta$ represents the parameters of our network, like all the weights and biases. By doing this the average is now over a minibatch instead over the entire dataset.\newline
+
+The stochastic gradient descent has two important benefits:\newline
+1. It decreases the chance that the algorithm becomes stuck in a local minima.\newline
+2. It speeds up the calculation significantly since we don't have to use the entire dataset to calculate the gradient.\newline
+
+When implementing this method into a neural network, a feed-forward + backward propagation with a minibatch is often refered to as an \emph{iteration}, and a full training period going through the whole dataset (all batches) is called an \emph{epoch}.
+
+\subsection{Neural networks}
+Neural networks is a method that can be used for both classification and regression problems depending on weather the activation function is adjusted to either classification or regression.
+
+\subsubsection{General procedure for neural networks with back propagation}
+In general it can be useful to list the key steps in our method of using neural networks to solve supervised learning problems. Therefore such an overview will follow below:\newline
+1. Collect and pre-process data (pre-processing of the data may not be necessary in all cases).\newline
+2. Define model and architecture. This includes how many layers to use in the model, how many neurons to use in each layer and so on.\newline
+3. Choose cost function and optimizer.\newline
+4. Train the model on the training data.\newline
+5. Evaluate the model (check how well it performs) on the test data.\newline
+6. Adjust hyperparameters (like the penalization $\lambda$) or network architecture if necessary \cite{Morten ML}.\newline
+
+\subsubsection{Multilayer perceptrons}
+One often uses so-called fully connected feed-forward neural networks with three or more layers (an input layer, one or more hidden layers and an output layer) consisting of neurons that have non-linear activation functions. Such networks are often called multilayer perceptrons (MLPs).\newline
+
+The multilayer perception model is a very popular approach because it is relatively easy to implement. The model consists of:\newline
+
+1. A neural network with one or more hidden layers. Specifically the multilayer network structure (or achitecture) consists of an input layer, one or more hidden layers and then an output layer.\newline
+
+2. The input neurons pass values to the first hidden layer. Then this first hidden layer takes the values form the input layer and passes new values to the second hidden layer, which passes values to the third hidden layer, and so on. This goes on until the output layers are reached. \newline
+
+Conventionally, one names the network by the number of layers it has. For example, a network with one input layer, one hidden layer and one output layer is called a two-layer network. A neural network with only one layer (the simple perceptron) works best in the cases with a binary model with clear (linear) boundaries between the outcomes. A more complex network with one or more hidden layers are used to approximate systems with more complex boundaries.
+
+\subsubsection{Mathematical model}
+The output $y$ is produced via the activation function f:
+\begin{equation}
+    y = f( \sum_{i=1}^n{\omega_i x_i + b_i} ) = f(z)
+\end{equation}
+where $\omega_i$ are the weights and $b_i$ are the bias. The inputs $x_i$ are the outputs of the neurons in the preceeding layer.\newline
+This is really nothing more, but (just) a weighted sum of the inputs $x_i$.\newline
+
+First, for each node (neuron) $i$ in the hidden layer, we calculate a weighted sum $z_i^1$ of the input coordinates $x_j$:
+\begin{equation}
+    z_i^1 = \sum_{j=1}^n \omega_{ij}^1 x_j + b_i^1
+\end{equation}
+
+The value of $z_i^1$ is the argument of the activation function $f_i$ of each node $i$.\newline
+
+In the equation below the variable M stands for all possible inputs to a given node $i$ in the first layer. So the bottom index corresponds to the spesific neuron $i$ in some layer, while the upper index corresponds to the layer itself. We define the output $y_i^1$ of all neurons in layer 1 as
+\begin{equation}
+    y_i^1 = f(z_i^1) = f( \sum_{j=1}^M \omega_{ij}^1 x_j + b_i^1 )
+\end{equation}
+
+where we have assumed that all the neurons in the same layer have identical activation functions. In general one would typically assume that different layers have different activation functions though, and in that case we would identify these functions with a superscript (upper index) l for the l-th layer.
+\begin{equation}
+    y_i^l = f^l(u_i^l) = f^l( \sum_{j=1}^{N_{l-1}} \omega_{ij}^l y_j^{l-1} + b_i^l )
+\end{equation}
+When the output of all the nodes in the first hidden layer are computed, the values of the subsequent layer can be computed and so forth until the final output is obtained.\newline
+This can be generalized to an MLP with $l$ hidden layers:
+
+\begin{align}
+&y^{l+1}_i = f^{l+1}\left[\!\sum_{j=1}^{N_l} w_{ij}^3 f^l\left(\sum_{k=1}^{N_{l-1}}w_{jk}^{l-1}\left(\dots f^1\left(\sum_{n=1}^{N_0} w_{mn}^1 x_n+ b_m^1\right)\dots\right)+b_k^2\right)+b_1^3\right]
+\end{align}
+
+
+\subsubsection{Matrix-vector notation}
+The equations above describing the activations in our MLP can be rewritten as matrix-vector equations, which is is a more convenient notation.\newline
+We can represent the biases and activations as column vectors $\hat{b_l}$ and $\hat{y_l}$ so that the i-th elements of the vectors are the bias $b_i^l$ and activation $y_i^l$ of node $i$ respectively. The index $l$ refer to the l-th layer.\newline
+The weigths can be gathered in a matrix $W_l$ of size $N_{l-1} \times N_l$, and $\hat{b_l}$ and $\hat{y_l}$ are both of size $N_l \times 1$. With this matrix-vector notation, the sum becomes a matrix-vector multiplication. As an example one can take a network with two hidden layers (three nodes). The activations of hidden layer number two will then be given as
+
+\begin{equation}
+ \hat{y}_2 = f_2(\mathrm{W}_2 \hat{y}_{1} + \hat{b}_{2}) = 
+ f_2\left(\left[\begin{array}{ccc}
+    w^2_{11} &w^2_{12} &w^2_{13} \\
+    w^2_{21} &w^2_{22} &w^2_{23} \\
+    w^2_{31} &w^2_{32} &w^2_{33} \\
+    \end{array} \right] \cdot
+    \left[\begin{array}{c}
+           y^1_1 \\
+           y^1_2 \\
+           y^1_3 \\
+          \end{array}\right] + 
+    \left[\begin{array}{c}
+           b^2_1 \\
+           b^2_2 \\
+           b^2_3 \\
+          \end{array}\right]\right).
+\end{equation}
+
+For each operation $W_l \hat{y}_{l-1}$ we move one layer forward.
+
+\subsubsection{Cost function for regression with neural network}
+As before, we need to introduce a cost function to measure how well the model (our neural network) is performing.\newline
+When using neural networks to solve a regression problem, a typical choice for the cost function is the well known mean squared error:
+\begin{equation}
+   {\cal C}(\hat{W})  =  \frac{1}{2}\sum_{i=1}^n\left(y_i - t_i\right)^2 
+\end{equation}
+
+where we have n $t_i$'s which are our targets (the values we want to reproduce). The $y_i$'s are the outputs of the network.
+
+\subsubsection{Cost function for classification with neural network}
+When it comes to using neural networks to do binary classification problems like the two-dimensional Ising model, we may reuse the cost function from the logistic regression case. The logistic function enters now in the output layer of the network, producing a probability $a^L$ (where L refers to the output layer $l=L$) which is then mapped to one of the two classes $y_i = \epsilon \{0, 1\}$.\newline
+
+It can then be shown that the cost function at the final layer $l = L$ will be
+\begin{equation}
+    {\cal C}(\hat{W})  =  -\sum_{i=1}^n( t_i log(a_i^L) + (1-t_i)log(1-a_i^L) )
+\end{equation}
+\cite{Morten ML}.
+
+\subsubsection{Back propagation for a multilayer perceptron model}
+Our unknown variables $\omega_{ij}$ (the weights) are a central part of our neural network. The problem at hand now is to find an algorithm for changing them in such a way that our errors are minimized. This is done via the famous back propagation algorithm.\newline 
+In order to derive the back propagation equations for a multilayer perceptron model, a few quantities needs to be defined. Let's first take our cost function for the regression case 
+\begin{equation}
+   {\cal C}(\hat{W})  =  \frac{1}{2}\sum_{i=1}^n\left(y_i - t_i\right)^2 
+\end{equation}
+
+where we have n $t_i$'s which are our targets (the values we want to reproduce). The $y_i$'s are the outputs of the network and we call the inputs $\hat{x}$.\newline
+Next, the activation $z_j^l$ of node $j$ of the l-th layer can be defined as
+\begin{equation}
+    z_j^l = \sum_{i=1}^{M_{l-1}}w_{ij}^la_i^{l-1}+b_j^l
+\end{equation}
+where $M_{l-1}$ are the total number of nodes of layer $l-1$, $b_j^l$ is the bias, $\omega_{ij}^l$ are the weigths that adds up from the previous layer and $\hat{a}^{l-1}$ are the outputs from the previous layer (l-1). As mentioned in an earlier section this can also be written as a matrix-vector product. In that notation it will look like:
+\begin{equation}
+    \hat{z}^l = \left(\hat{W}^l\right)^T\hat{a}^{l-1}+\hat{b}^l
+\end{equation}
+With the equations of the activation values $\hat{z}^l$ above we can now define the output of layer $l$ as
+\begin{equation}
+    \hat{a}^l = f(\hat{z}^l) = \frac{1}{1 + e^{-z_j^l}}
+\end{equation}
+where $f$ is our activation function as before.\newline
+
+\subsubsection{Deriving the back propagation equations}
+Equipped with the definitions of the previous section, we are now ready to derive the back propagation equations. First we need to calculate a few derivatives.\newline
+From the definition of the activation $z_j^l$, we have
+\begin{equation}
+    \frac{\partial z_j^l}{\partial w_{ij}^l} = a_i^{l-1}
+\end{equation}
+and
+\begin{equation}
+    \frac{\partial z_j^l}{\partial a_i^{l-1}} = w_{ji}^l
+\end{equation}
+
+Further we get from our definition of the activation function:
+\begin{equation}
+    \frac{\partial a_j^l}{\partial z_j^{l}} = a_j^l(1-a_j^l)=f(z_j^l)(1-f(z_j^l))
+\end{equation}
+
+Now we have the tools to compute the derivative of the cost function with respect to the weigths. If we keep to the output layer $l=L$, our cost function can now be written
+\begin{equation}
+    {\cal C}(\hat{W^L})  =  \frac{1}{2}\sum_{i=1}^n\left(y_i - t_i\right)^2=\frac{1}{2}\sum_{i=1}^n\left(a_i^L - t_i\right)^2
+\end{equation}
+and the derivative of the cost function with respect to the weights is
+\begin{equation}
+    \frac{\partial{\cal C}(\hat{W^L})}{\partial w_{jk}^L}  =  \left(a_j^L - t_j\right)a_j^L(1-a_j^L)a_k^{L-1}
+\end{equation}
+
+In order to get a more compact expression for the derivative of the cost function, a new quantity $\delta_j^L$ is defined as
+\begin{equation}
+    \delta_j^L = a_j^L(1-a_j^L)\left(a_j^L - t_j\right) = f'(z_j^L)\frac{\partial {\cal C}}{\partial (a_j^L)}
+\end{equation}
+which again can be expressed as a Hadamard product of two vectors
+\begin{equation}
+    \hat{\delta}^L = f'(\hat{z}^L)\circ\frac{\partial {\cal C}}{\partial (\hat{a}L)}
+\end{equation}
+By using this the derivative of the cost function can be written in a more compact way as
+\begin{equation}
+    \frac{\partial{\cal C}(\hat{W^L})}{\partial w_{jk}^L}  =  \delta_j^La_k^{L-1}.
+\end{equation}
+
+From the previous equation one can also see that
+\begin{equation}
+    \delta_j^L =\frac{\partial {\cal C}}{\partial z_j^L}= \frac{\partial {\cal C}}{\partial a_j^L}\frac{\partial a_j^L}{\partial z_j^L}
+\end{equation}
+and this can be interpreted as the partial derivative of the cost function with respect to the biases $b_j^l$:
+\begin{equation}
+    \delta_j^L = \frac{\partial {\cal C}}{\partial b_j^L}\frac{\partial b_j^L}{\partial z_j^L}=\frac{\partial {\cal C}}{\partial b_j^L}
+\end{equation}
+It is thus clear, from the equation above, that the error $\delta_j^L$ is exactly equal to the rate of change of the cost function with respect to the bias.\newline
+
+So far we have derived three equations that are necessary to start the algorithm. These are:
+\begin{equation}
+    \frac{\partial{\cal C}(\hat{W^L})}{\partial w_{jk}^L}  =  \delta_j^La_k^{L-1}
+\end{equation}
+and
+\begin{equation}
+\delta_j^L = f'(z_j^L)\frac{\partial {\cal C}}{\partial (a_j^L)},
+\end{equation}
+and
+\begin{equation}
+\delta_j^L = \frac{\partial {\cal C}}{\partial b_j^L},
+\end{equation}
+
+There are two interesting features related to these equations that are worth mentioning. First, one can see from equation (38) that when the activation $a_k^{L-1}$ is small, the derivative of the cost function with respect to the weights will move toward a smaller value as well. This means that the cost function changes slowly when we minimize it (by for example using gradient descent). In those cases it is common to say that the system learns slowly.\newline
+Second, by looking at the activation function (the sigmoid) in figure 2 one can easily see that the sigmoid function flattens when moving far out in either positive- or negative x-direction. In those intervals we know that the derivative of the activation function must be close to zero. A consequence of this is that the gradient term once again moves towards zero which means that the system learns slowly in this case as well.\newline
+
+The next step is now to derive the final and fourth back propagation equation. Based on the error from the final output layer we are going to propagate backwards and change the weights and biases accordingly in order to minimize the error. In order to do this we need to express the error in the next to last layer in terms of the errors in the final (last) output layer.\newline
+
+When replacing our specific layer L with a general layer $l$, equation (36) reads
+\begin{equation}
+    \delta_j^l =\frac{\partial {\cal C}}{\partial z_j^l}.
+\end{equation}
+As mentioned above, we want to express this error (of layer $l$) in terms of the equations for layer $l+1$. This is done by using the chain rule and summing over all $k$ entries:
+\begin{equation}
+    \delta_j^l =\sum_k \frac{\partial {\cal C}}{\partial z_k^{l+1}}\frac{\partial z_k^{l+1}}{\partial z_j^{l}}=\sum_k \delta_k^{l+1}\frac{\partial z_k^{l+1}}{\partial z_j^{l}},
+\end{equation}
+and then recalling that $z_j^{l+1} = \sum_{i=1}^{M_{l}}w_{ij}^{l+1}a_j^{l}+b_j^{l+1}$ from equation (25), we get
+\begin{equation}
+    \delta_j^l =\sum_k \delta_k^{l+1}w_{kj}^{l+1}f'(z_j^l)
+\end{equation}
+which is our final back propagation equation.
+
+\subsubsection{The back propagation equations}
+By grouping together equations (38)-(40) and (43) we have four equations that enable us to compute the gradient of the cost function:
+\begin{equation}
+    \frac{\partial{\cal C}(\hat{W^L})}{\partial w_{jk}^L}  =  \delta_j^La_k^{L-1}
+\end{equation}
+and
+\begin{equation}
+\delta_j^L = f'(z_j^L)\frac{\partial {\cal C}}{\partial (a_j^L)},
+\end{equation}
+and
+\begin{equation}
+\delta_j^L = \frac{\partial {\cal C}}{\partial b_j^L},
+\end{equation}
+and
+\begin{equation}
+    \delta_j^l =\sum_k \delta_k^{l+1}w_{kj}^{l+1}f'(z_j^l)
+\end{equation}
+
+\subsubsection{The back propagation algorithm}
+Now it is time to use the equations we just derived to set up the so-called back propagation algorithm.\newline
+
+1. Set up the input $\hat{x}$ and the activation's $\hat{z}^1$ of the input layer. The corresponding outputs $\hat{a}^1$ can then be calculated.\newline 
+
+2. Perform the feed forward process. That means, for each layer $l = 2, 3,..., L$ (where L is the output layer) compute all $\hat{z^l}$ and $\hat{a^l}$.\newline
+
+3. Compute the output error $\hat{\delta^L}$.\newline
+
+4. Backpropagate the error. That means, compute the back propagation error $\delta_j^l$ for each layer $l = L-1, L-2,..., 2$.\newline
+
+5. Update the weights and biases using gradient descent for each layer $l=L-1, L-2,..., 2$. Specifically, the weights and biases are updated using the formulas
+\begin{equation}
+    w_{jk}^l\leftarrow  = w_{jk}^l- \eta \delta_j^la_k^{l-1},
+\end{equation}
+
+\begin{equation}
+    b_j^l \leftarrow b_j^l-\eta \frac{\partial {\cal C}}{\partial b_j^L}
+\end{equation}
+The parameter $\eta$ in the above equations is the learning rate.
+
+\section{Implementation}
+\subsection{The data}
+The data for the 1-D Ising model i produced by making 10 000 arrays of 40 randomly configurated, ones and minus ones. One representing a up-spin and minus-one representing a down spin.
+
+The data for the 2-D model is from «nettside0!!» 
+
+\subsection{Linear Regression}
+Our linear regression class is from Project 1 (Liahjell et all. 2018)
+\subsection{Logistic Regression}
+\subsection{Regression Neural Network}
+\subsection{Classifying Neural Network}
+Github adress where all source files are available:\newline
+\href{https://github.com/gunnartl/fys-stk4155/tree/master/project2}{https://github.com/gunnartl/fys-stk4155/tree/master/project2}.
+\newpage
+\section{Results}
+\subsection{Linear Regression}
+
+\begin{figure}[h!]
+  \centering
+  \caption{Coupling constants for OLS, lasso and ridge, for sample size of 400 states for an increasing lambda}
+  \includegraphics[width=\linewidth]{Coupling_const.pdf}
+  \label{fig:couple}
+\end{figure}
+
+The original J-matrix we used to calculate the energies, han ones on the super-diagonal and in the lower left corner. 
+
+To illustrate some difference between the algorithms we made a plot for different values of lambda with a pretty small batch size(400 states). 
+
+Figure (?) shows the coupling constants calculated by OLS, ridge and lasso. The OLS is naturally not affected by the change of lambda. Ridge is not verry affected in this region of lambda sizes, but as one can see in figure (MSE-linreg) and illustrated in Project one, the weights drop slowly to zero after $\lambda = 10$. Lasso however wich tends to force wights to zero, do so at $\lambda = 0.001$. 
+
+Notice that OLS and lasso puts wights on both the subdiagonal and the superdiagonal, while lasso only has weights on the superdiagonal. OLS and ridge couples $J_{ij}$ to $J_{ji}$ and $J_{ji}$ to $J_{ij}$ with wheights = 0.5 while lasso couples only $J_{ij}$ to $J_{ji}$ with wights = 1. This does not affect the result beeing that the energy calculated is a sum over all contributions. This is also the reson why the upper right corner is wighted in the lasso matrix.
+
+The second thing to notice is that ridge and OLS is overfitted. The MSE is zero for the training data and around 20 for the test data for both methods. 
+
+Theese problems can be solved by increasing the size of the training data. With training data consisting of 8000 sates the results are far better: 
+\begin{figure}[h!]
+    \centering
+    \caption{Coupling constants with 8000 states as training data}
+    \includegraphics[width=\linewidth]{couplingconst-8000.pdf}
+    \label{fig:couple8000}
+\end{figure}
+
+Now the wights of lasso are almost the same as our designed J-matrix and those of lasso and ridge close to half. The resulting MSE as a function of lambda figure 5 shows OLS outpreforming both ridge and lasso, and 
+\begin{figure}[h!]
+    \centering
+    \caption{MSE for Ridge, Lasso and OLS with 8000 states as training data.}
+    \includegraphics[width=10cm]{MSE-8000.pdf}
+    \label{fig:MSE8000}
+\end{figure}
+
+
+
+
+\begin{figure}[h!]
+  \centering
+  \caption{The Mean squared error of the energy as a function of lambda, for linear regression on the coupling constants. Stapled lines are the training data, and whole lines are the test data.}
+  \includegraphics[width=10cm]{MSElinearregression.pdf}
+  \label{fig:MSE_linreg}
+\end{figure}
+\subsection{Logistic Regression}
+\begin{figure}[h!]
+  \centering
+  \caption{Logistic regression with three different solvers: 'liblinear', 'Sklearn SGD' and self-implemented 'SGD' with mini batch training. Accuracy as a function of regularization strength $\lambda$. Presented on test and train data. }
+  \includegraphics[width=10cm]{accu_true.png}
+  \label{fig:logi}
+\end{figure}
+
+\begin{figure}[h!]
+  \centering
+  \caption{Classification of Ising model for different learning rates and hidden nodes. Data presented on test data. Network set up with two sigmoids, training for 4 epochs, cross entropy cost function.  }
+  \includegraphics[width=10cm]{MLP_class.png}
+  \label{fig:classi}
+\end{figure}
+\section{Discussion}
+\subsubsection{Determining the phase: Logistic regression and classification}
+From figure (\ref{fig:logi}) different solvers for logistic regression are used. Liblinear and SGD are solvers from the sklearn toolbox. A own stochastic gradient descent is also implemented with mini-batch training. The liblinear solver is not affected by the L2 regularization factor compared to the SGD and our own solver. The number of iterations used was 100 for all solvers. Mini-batch training was chosen as memory-error occured without dividing data. From \cite{ML for physicists} the same solver from sklearn were used. The same results were not produced. The accuracy score was higher for the liblinear. This may be due to the fact that the amount of iterations used for training was a factor 10 more. This was not done here as the computation time increased significantly.  
+
+The hyper parameters; number of iterations, number of batches, weights and learning rate could have been tweaked maybe granting a better result than presented here. Our SGD perform better than Sklearn at $\lambda = 1$, but changes as lambda increases. The performance of each model varies depends on the regularization strength. The liblinear solver performs good at lambdas in the interval $\lambda = [10^{-4} - 10^{2}]$. The sklearn SGD performs good at $\lambda = 10^{-2}$. The critical temperature was not taken into account. A short note on the critical temperature; it is expected to be low lower than for the disordered and ordered case. If one were to train the model to classify the critical case as well this would be as good as the disordered and ordered case as one gets an extra category. This is done in \cite{ML for physicists}. 
+
+The neural network implementation gave better results compared with the regression case. It was chosen to use two sigmoid functions as activation functions. One for the hidden and one for the output layer. The reason for this was a problem with overflow in the hidden layer. It should be possible to use a Relu function, but then other measures had needed to be taken into account. The learning and weights would then need different values. As for the output layer a sigmoid was chosen here as well. The reason for this was that we could easily classify all values below a threshold to be in the ordered class and the other in the disordered class. The sigmoid returns values from 0-1 it made sense to set the threshold to 0.5. The cross entropy cost function was used. The number of epochs was set to 4. This is usually pretty low, but because we did not do mini batch training a lower number of epochs was set. The amount of training data was large enough that the model was able to adapt well enough to the classification in just one epoch. Deciding the learning rate, it can be stated that from figure (\ref{fig:classi}) a learning rate of 0.01 gave the overall best results. It is not necessarily a correspondence with the accuracy and amount of hidden nodes as it is with Mehta et al where tensorflow was used.This set up was different than our approach. This model is done on the test data. For large amount of hidden nodes the model it could be the case of overfitting the training data. This could be said about a high learning rate.         
+\section{Conclusion}
+Studying the Ising model in both 1 and 2 dimensions with the use machine learning tools has proved to be a valuable approach if paying attention to adjustable parameters of each model. Tools include regression, classification and multi layer perceptron. Calculating the coupling constant J in 1 dimension produce good results for the right choice of the regularization strength $\lambda$. This is seen in the R2 score plot figure(=!?!?!?!?!?!) where a perfect model has the R2 = 1. It is important to draw attention this parameter as this must be chosen for each set data and the $\lambda$ values found here do not necessarily apply to other regression cases. This is also the case for the neural network where the model fits the data to very low MSE. FÅ INN VERDIER HER!!!!. A simple OLS application would be enough to predict the energies of the ising model. On the contrary, determining the phases did not produce the same accuracy for logistic regression and neural network. 
+
+The best logistic regression performs to an accuracy of about 65\% on the training data. To put this in perspective, if the model had an accuracy of predicting either a ordered or disordered phase of 50\%, then the model would just be guessing on a phase. On the hand, the neural network predicts at an accuracy of 100\% for a correct hyper parameter selection $\eta$ and hidden nodes. Needless to say, a neural network it most necessary on the classifying the phases of the Ising model. 
+
+
+\section{Comment}
+For more background information on statistics, linear regression, resampling techniques and more, please see Project 1 which can be found on \href{https://github.com/gunnartl/fys-stk4155/blob/master/project1/FYS_STK_prosjekt_1_Rapport.pdf}{this Github adress}.
+
+\begin{thebibliography}{}
+\bibitem{Morten ML}
+Hjorth-Jensen, Morten. \textit{$https://compphysics.github.io/MachineLearning/doc/pub/NeuralNet/pdf/NeuralNet-minted.pdf$}, 2018
+
+\bibitem{logreg}
+Hjorth-Jensen, Morten. \textit{$https://compphysics.github.io/MachineLearning/doc/pub/LogReg/pdf/LogReg-minted.pdf$}, 2018
+\bibitem{proj2}
+Hjorth-Jensen, Morten. \textit{$https://compphysics.github.io/MachineLearning/doc/Projects/2018/Project2/pdf/Project2.pdf$}, 2018
+
+\bibitem{stat book}
+Hastie, T., Tibshirani, R., Friedman, J. \textit{The Elements of Statistical Learning Second Edition}, 2008
+
+\bibitem{ML for physicists}
+Mehta Pankaj, Wang Ching-Hao, Day Alexandre G.R and Richardson Clint, \textit{A high-bias low-variance introduction to Machine Learning for physicists}, 2018
+
+\bibitem{R2 score}
+Frost Jim, \textit{Regression Analysis: How Do I Interpret R-squared and Assess the Goodness-of-Fit?}, 2013
+
+\bibitem{Super and unsuper ML}
+Brownlee Jason, \textit{Supervised and Unsupervised Machine Learning Algorithms}, 2016
+
+\bibitem{Mehta et al}
+Pankaj Mehta, Marin Bukov, Ching-Hao Wang, Alexandre G.R. Day, Clint Richardson, Charles K. Fisher, David J. Schwab \textit{A high-bias, low-variance introduction to Machine Learning for physicists}, 2018, arXiv:1803.08823.
+
+\bibitem{Lars Onsager}
+\textit{$https://en.wikipedia.org/wiki/Lars_Onsager$}
+
+\bibitem{Ising}
+\textit{$http://math.arizona.edu/~tgk/541/chap1.pdf$}
+
+\bibitem{supervised training}
+Soni Devin, \textit{Supervised vs unsupervised training}, 2018, Towards data science. 
+\bibitem{universal approx theorem}
+Fortuner Brendan, \textit{Can neural networks solve any problem?}, 2017, Towards data science. 
+\end{thebibliography}
+
+\end{document}
