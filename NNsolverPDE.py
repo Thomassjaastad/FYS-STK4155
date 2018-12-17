@@ -67,9 +67,6 @@ with tf.Session() as sess:
     init.run()
     for i in range(num_iter):
         sess.run(traning_op)
-        # If one desires to see how the cost function behaves during training
-        #if i % 100 == 0:
-        #    print(loss.eval())
     g_analytic = g_analytic.eval()
     g_dnn = g_trial.eval()
 

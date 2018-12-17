@@ -39,16 +39,17 @@ def U(x, t):
 
 import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
+"""Saves each time iteration plot and runs as sequence"""
 
 x = np.linspace(0, L, m + 1)
 t = np.linspace(0, 1, k)
-line, = plt.plot(x, U(x, 0))
-line2, = plt.plot(x, unew[:, 0])
+line, = plt.plot(x, U(x, 0), label = 'analytic')
+line2, = plt.plot(x, unew[:, 0], label = 'numerical')
 for i, time in enumerate(t[::100]):
     line.set_ydata(U(x, time)) # analytic    
     line2.set_ydata(unew[:, i*100])
     plt.draw()
     plt.title('Diffusion equation at t = %f' % time)
-    plt.pause(0.0001) 
-
+    plt.pause(0.0001)   
+    plt.legend()
 plt.show()
